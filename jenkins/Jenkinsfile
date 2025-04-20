@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'ACTION', choices: ['create', 'destroy'], description: 'Choose whether to create or destroy infrastructure')
+    }
+
+    environment {
+        AWS_ACCESS_KEY_ID     = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                script {
+                    git branch: 'main', 
+                        credentialsId: 'github-token', 
+                        url: 'https://github.com/as1120916/repo20-4.git'
+                }
+            }
+        }
+
+        stage('Initialize Terraform') 
+            steps {
+                sh 'terraform init'
+            }
+        }
+
+        stage('Terraform Plan') {
+            when {
+                expression { params.ACTION == 'create' }
+            }
+            steps {
+                sh 'terraform plan -out=tfplan'
+            }
+        }
+
+        stage('Terraform Apply') {
+            when {
+                expression { params.ACTION == 'create' }
+            }
+            steps {
+                sh 'terraform apply -auto-approve tfplan'
+            }
+        }
+
+        stage('Terraform Destroy') {
+            when {
+                expression { params.ACTION == 'destroy' }
+            }
+            steps {
+                sh 'terraform destroy -auto-approve'
+            }
+        }
+
+        stage('Post Deployment Info') {
+            steps {
+                sh 'terraform output || true'
+            }
+        }
+    }
+}
